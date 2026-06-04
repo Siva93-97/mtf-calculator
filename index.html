@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MTF Calculator</title>
+  <meta name="description" content="MTF Calculator for margin trading analysis with net P&L, break-even, sensitivity, holding period, scenario, and rate comparison views." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --surface: #12182a;
+      --surface-2: #171f36;
+      --surface-3: #0f1629;
+      --border: rgba(195, 210, 235, 0.12);
+      --text: #e8eefc;
+      --muted: #90a0c0;
+      --faint: #61708f;
+      --primary: #3dd9eb;
+      --success: #35d38a;
+      --warning: #f3b63f;
+      --danger: #ff667d;
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-10: 40px;
+      --text-xs: clamp(0.75rem, 0.72rem + 0.15vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.84rem + 0.2vw, 1rem);
+      --text-base: clamp(1rem, 0.98rem + 0.2vw, 1.05rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.6vw, 1.4rem);
+      --text-xl: clamp(1.45rem, 1.2rem + 1.2vw, 2rem);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(61, 217, 235, 0.10), transparent 26%),
+        linear-gradient(180deg, #0b1020 0%, #0a0f1d 100%);
+      color: var(--text);
+      font-size: var(--text-base);
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    .container {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+    .hero {
+      padding: 28px 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(61,217,235,0.03));
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(14px);
+      z-index: 20;
+    }
+    .hero-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-4);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .brand {
+      display: flex;
+      gap: var(--space-4);
+      align-items: center;
+    }
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      color: #041018;
+      font-weight: 800;
+      box-shadow: var(--shadow);
+    }
+    h1 {
+      margin: 0;
+      font-size: var(--text-xl);
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: var(--text-sm);
+      margin-top: 2px;
+    }
+    .signal {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: var(--text-sm);
+      color: var(--muted);
+    }
+    .layout {
+      padding: 28px 0 60px;
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 24px;
+    }
+    .panel, .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow);
+    }
+    .panel {
+      padding: 20px;
+      align-self: start;
+      position: sticky;
+      top: 112px;
+    }
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .section-label::before {
+      content: "";
+      width: 3px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-3);
+      border-radius: 12px;
+      padding: 0 12px;
+    }
+    .prefix, .suffix {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      min-height: 46px;
+      font: inherit;
+      font-weight: 600;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .note {
+      margin-top: 5px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      width: 100%;
+      min-height: 46px;
+      border-radius: 12px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      transition: 180ms ease;
+    }
+    .btn:hover { border-color: rgba(61,217,235,0.35); background: rgba(61,217,235,0.08); }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .tab {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      border-radius: 999px;
+      min-height: 40px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .tab.active { color: #041018; background: var(--primary); border-color: transparent; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric {
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .metric .k {
+      font-size: var(--text-xs);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .metric .v {
+      font-size: var(--text-lg);
+      line-height: 1.15;
+      font-weight: 800;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .metric .s {
+      margin-top: 6px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .card { padding: 18px; }
+    .card-title {
+      margin: 0 0 14px;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .charges-list {
+      display: grid;
+      gap: 10px;
+    }
+    .charge-row, .scenario-row, .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 10px;
+    }
+    .charge-row:last-child, .scenario-row:last-child, .summary-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 10px;
+      flex: 0 0 auto;
+    }
+    .name-wrap {
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      font-size: var(--text-sm);
+      min-width: 0;
+    }
+    .mono { font-family: "JetBrains Mono", monospace; }
+    canvas { width: 100% !important; height: 320px !important; }
+    .short canvas { height: 240px !important; }
+    .table-wrap { overflow: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+    th {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .good { color: var(--success); }
+    .bad { color: var(--danger); }
+    .warn { color: var(--warning); }
+    .footer-note {
+      color: var(--faint);
+      font-size: 12px;
+      margin-top: 14px;
+    }
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { position: static; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .container { width: min(100% - 20px, 1240px); }
+      .hero { padding-top: 18px; }
+      .metrics { grid-template-columns: 1fr; }
+      .signal { width: 100%; border-radius: 16px; }
+      h1 { font-size: 1.5rem; }
+      canvas { height: 260px !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container hero-bar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div>
+          <h1>MTF Calculator</h1>
+          <div class="sub">Margin Trading Facility calculator with break-even, ROE, cost of carry, sensitivity and scenario analysis.</div>
+        </div>
+      </div>
+      <div id="signal" class="signal">Loading summary…</div>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="panel">
+      <div class="section-label">Inputs</div>
+      <div class="field"><label for="own">Own Capital</label><div class="input-wrap"><span class="prefix">₹</span><input id="own" type="number" step="10000" value="500000"></div><div class="note">Your own invested capital.</div></div>
+      <div class="field"><label for="borrowed">Borrowed MTF Amount</label><div class="input-wrap"><span class="prefix">₹</span><input id="borrowed" type="number" step="10000" value="1000000"></div><div class="note">Loan used through MTF.</div></div>
+      <div class="field"><label for="stockRet">Expected Stock Return</label><div class="input-wrap"><input id="stockRet" type="number" step="0.5" value="15"><span class="suffix">%</span></div><div class="note">Expected return on total position.</div></div>
+      <div class="field"><label for="days">Holding Period</label><div class="input-wrap"><input id="days" type="number" min="1" step="1" value="30"><span class="suffix">days</span></div></div>
+      <div class="field"><label for="dailyRate">Daily Interest Rate</label><div class="input-wrap"><input id="dailyRate" type="number" step="0.001" value="0.049"><span class="suffix">% / day</span></div><div class="note" id="annualizedRate">≈ 17.9% per annum</div></div>
+      <div class="field"><label for="brokerage">Brokerage per order</label><div class="input-wrap"><span class="prefix">₹</span><input id="brokerage" type="number" step="1" value="20"></div></div>
+      <div class="field"><label for="stt">STT (sell side)</label><div class="input-wrap"><input id="stt" type="number" step="0.001" value="0.1"><span class="suffix">%</span></div></div>
+      <div class="field"><label for="gst">GST on brokerage</label><div class="input-wrap"><input id="gst" type="number" step="1" value="18"><span class="suffix">%</span></div></div>
+      <div class="field"><label for="stamp">Stamp duty (buy side)</label><div class="input-wrap"><input id="stamp" type="number" step="0.001" value="0.015"><span class="suffix">%</span></div></div>
+      <div class="field"><label for="exchange">Exchange charges</label><div class="input-wrap"><input id="exchange" type="number" step="0.00001" value="0.00325"><span class="suffix">%</span></div></div>
+      <div class="field"><label for="sebi">SEBI charges</label><div class="input-wrap"><input id="sebi" type="number" step="0.0000001" value="0.000001"><span class="suffix">%</span></div></div>
+      <button id="resetBtn" class="btn" type="button">Reset to defaults</button>
+      <div class="footer-note">Built as a static single-file page, ready to publish on GitHub Pages.</div>
+    </aside>
+
+    <section>
+      <nav class="tabs" aria-label="Views">
+        <button class="tab active" data-tab="dashboard">Dashboard</button>
+        <button class="tab" data-tab="sensitivity">Sensitivity</button>
+        <button class="tab" data-tab="holding">Holding Period</button>
+        <button class="tab" data-tab="scenarios">Scenarios</button>
+        <button class="tab" data-tab="rates">Rate Comparison</button>
+      </nav>
+
+      <div id="dashboard" class="tab-panel active">
+        <div class="metrics">
+          <div class="metric"><div class="k">Total Position</div><div id="mTotalPos" class="v"></div><div id="mLeverage" class="s"></div></div>
+          <div class="metric"><div class="k">Net P/L</div><div id="mNetPL" class="v"></div><div id="mNetSub" class="s"></div></div>
+          <div class="metric"><div class="k">ROE</div><div id="mROE" class="v"></div><div class="s">Return on own capital</div></div>
+          <div class="metric"><div class="k">Break-even Return</div><div id="mBEP" class="v"></div><div class="s">Minimum stock return to cover all costs</div></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="k">Gross P/L</div><div id="mGross" class="v"></div></div>
+          <div class="metric"><div class="k">Total Interest</div><div id="mInterest" class="v"></div></div>
+          <div class="metric"><div class="k">Total Charges</div><div id="mCharges" class="v"></div></div>
+          <div class="metric"><div class="k">Cost of Carry</div><div id="mCost" class="v"></div></div>
+        </div>
+        <div class="two-col">
+          <article class="card short">
+            <h2 class="card-title">Charge Breakdown</h2>
+            <div id="chargesList" class="charges-list"></div>
+          </article>
+          <article class="card short">
+            <h2 class="card-title">Cost Composition</h2>
+            <canvas id="chargesChart"></canvas>
+          </article>
+        </div>
+        <article class="card">
+          <h2 class="card-title">Net P/L vs Stock Return</h2>
+          <canvas id="sensitivityChart"></canvas>
+        </article>
+      </div>
+
+      <div id="sensitivity" class="tab-panel">
+        <div class="two-col">
+          <article class="card"><h2 class="card-title">Net Profit / Loss</h2><canvas id="sensNetChart"></canvas></article>
+          <article class="card"><h2 class="card-title">ROE by Return</h2><canvas id="sensROEChart"></canvas></article>
+        </div>
+        <article class="card">
+          <h2 class="card-title">Sensitivity Table</h2>
+          <div class="table-wrap"><table><thead><tr><th>Return</th><th>Gross P/L</th><th>Net P/L</th><th>ROE</th></tr></thead><tbody id="sensTableBody"></tbody></table></div>
+        </article>
+      </div>
+
+      <div id="holding" class="tab-panel">
+        <div class="two-col">
+          <article class="card"><h2 class="card-title">Net P/L vs Holding Days</h2><canvas id="holdingNetChart"></canvas></article>
+          <article class="card"><h2 class="card-title">Interest Cost vs Holding Days</h2><canvas id="holdingInterestChart"></canvas></article>
+        </div>
+      </div>
+
+      <div id="scenarios" class="tab-panel">
+        <div class="two-col">
+          <article class="card"><h2 class="card-title">Scenario Comparison</h2><canvas id="scenarioChart"></canvas></article>
+          <article class="card"><h2 class="card-title">Scenario Summary</h2><div id="scenarioList" class="charges-list"></div></article>
+        </div>
+      </div>
+
+      <div id="rates" class="tab-panel">
+        <article class="card">
+          <h2 class="card-title">Rate Comparison by Net P/L</h2>
+          <canvas id="rateChart"></canvas>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const DEFAULTS = {
+      own: 500000,
+      borrowed: 1000000,
+      dailyRate: 0.00049,
+      days: 30,
+      brokerage: 20,
+      stt: 0.001,
+      gst: 0.18,
+      stamp: 0.00015,
+      exchange: 0.0000325,
+      sebi: 0.00000001,
+      stockRet: 0.15
+    };
+
+    const COLORS = {
+      primary: '#3dd9eb',
+      success: '#35d38a',
+      warning: '#f3b63f',
+      danger: '#ff667d',
+      purple: '#9a7cff',
+      orange: '#ff9c46',
+      pink: '#f472b6',
+      blue: '#60a5fa',
+      text: '#e8eefc',
+      muted: '#90a0c0',
+      grid: 'rgba(255,255,255,0.08)'
+    };
+
+    const RATES = [0.00033, 0.00041, 0.00049, 0.00055, 0.00060, 0.00075, 0.00082];
+    const RATE_COLORS = [COLORS.danger, COLORS.orange, COLORS.primary, COLORS.success, COLORS.warning, COLORS.purple, COLORS.pink];
+
+    const fmt = {
+      inrCompact(v) {
+        const abs = Math.abs(v);
+        if (abs >= 1e7) return `₹${(v / 1e7).toFixed(2)}Cr`;
+        if (abs >= 1e5) return `₹${(v / 1e5).toFixed(2)}L`;
+        return `${v < 0 ? '-' : ''}₹${Math.abs(Math.round(v)).toLocaleString('en-IN')}`;
+      },
+      inrFull(v) {
+        return `${v < 0 ? '-' : ''}₹${Math.abs(Math.round(v)).toLocaleString('en-IN')}`;
+      },
+      pct(v, d = 2) {
+        return `${(v * 100).toFixed(d)}%`;
+      },
+      pctNum(v, d = 2) {
+        return `${v.toFixed(d)}%`;
+      },
+      mult(v) {
+        return `${v.toFixed(2)}x`;
+      }
+    };
+
+    function calculate(p) {
+      const totalPos = p.own + p.borrowed;
+      const interestC = p.borrowed * p.dailyRate * p.days;
+      const sellVal = totalPos * (1 + p.stockRet);
+      const sttC = sellVal * p.stt;
+      const brokC = (p.brokerage * 2) * (1 + p.gst);
+      const stampC = totalPos * p.stamp;
+      const exchC = totalPos * p.exchange * 2;
+      const sebiC = totalPos * p.sebi * 2;
+      const totalChg = sttC + brokC + stampC + exchC + sebiC;
+      const grossPL = totalPos * p.stockRet;
+      const netPL = grossPL - interestC - totalChg;
+      const bep = totalPos > 0 ? (interestC + totalChg) / totalPos : 0;
+      const roe = p.own > 0 ? netPL / p.own : 0;
+      const leverage = p.own > 0 ? totalPos / p.own : 0;
+      return { totalPos, interestC, sttC, brokC, stampC, exchC, sebiC, totalChg, grossPL, netPL, bep, roe, leverage, totalCost: interestC + totalChg };
+    }
+
+    function params() {
+      return {
+        own: num('own'),
+        borrowed: num('borrowed'),
+        stockRet: num('stockRet') / 100,
+        days: num('days'),
+        dailyRate: num('dailyRate') / 100,
+        brokerage: num('brokerage'),
+        stt: num('stt') / 100,
+        gst: num('gst') / 100,
+        stamp: num('stamp') / 100,
+        exchange: num('exchange') / 100,
+        sebi: num('sebi') / 100
+      };
+    }
+
+    function num(id) {
+      return parseFloat(document.getElementById(id).value) || 0;
+    }
+
+    function seriesForReturn(p) {
+      return Array.from({ length: 71 }, (_, i) => {
+        const ret = (-20 + i) / 100;
+        const r = calculate({ ...p, stockRet: ret });
+        return { retPct: ret * 100, netPL: r.netPL, roePct: r.roe * 100, grossPL: r.grossPL };
+      });
+    }
+
+    function seriesForDays(p) {
+      return Array.from({ length: 180 }, (_, i) => {
+        const d = i + 1;
+        const r = calculate({ ...p, days: d });
+        return { days: d, netPL: r.netPL, interest: r.interestC };
+      });
+    }
+
+    function scenarioData(p) {
+      const scenarios = [
+        { name: 'Bear', ret: -0.10, days: 60, color: COLORS.danger },
+        { name: 'Base', ret: 0.10, days: 30, color: COLORS.warning },
+        { name: 'Bull', ret: 0.25, days: 20, color: COLORS.success },
+        { name: 'Super Bull', ret: 0.40, days: 15, color: COLORS.primary }
+      ];
+      return scenarios.map(s => ({ ...s, ...calculate({ ...p, stockRet: s.ret, days: s.days }) }));
+    }
+
+    function rateData(p) {
+      return Array.from({ length: 71 }, (_, i) => {
+        const ret = (-20 + i) / 100;
+        const row = { retPct: ret * 100 };
+        RATES.forEach(rate => {
+          row[rate] = calculate({ ...p, stockRet: ret, dailyRate: rate }).netPL;
+        });
+        return row;
+      });
+    }
+
+    let charts = {};
+
+    function baseChartOptions() {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: COLORS.muted, boxWidth: 10, usePointStyle: true, pointStyle: 'circle' } },
+          tooltip: {
+            backgroundColor: '#11182a',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            titleColor: COLORS.text,
+            bodyColor: COLORS.text
+          }
+        },
+        scales: {
+          x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted } },
+          y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted } }
+        }
+      };
+    }
+
+    function destroyCharts() {
+      Object.values(charts).forEach(c => c && c.destroy());
+      charts = {};
+    }
+
+    function updateUI() {
+      const p = params();
+      const res = calculate(p);
+      const sens = seriesForReturn(p);
+      const holding = seriesForDays(p);
+      const scenarios = scenarioData(p);
+      const rateSeries = rateData(p);
+
+      document.getElementById('annualizedRate').textContent = `≈ ${(p.dailyRate * 365 * 100).toFixed(1)}% per annum`;
+      document.getElementById('mTotalPos').textContent = fmt.inrCompact(res.totalPos);
+      document.getElementById('mLeverage').textContent = `${fmt.mult(res.leverage)} leverage`;
+      document.getElementById('mNetPL').textContent = fmt.inrFull(res.netPL);
+      document.getElementById('mNetPL').style.color = res.netPL >= 0 ? COLORS.success : COLORS.danger;
+      document.getElementById('mNetSub').textContent = res.netPL >= 0 ? 'Profitable after costs' : 'Loss after costs';
+      document.getElementById('mROE').textContent = fmt.pct(res.roe);
+      document.getElementById('mROE').style.color = res.roe >= 0 ? COLORS.success : COLORS.danger;
+      document.getElementById('mBEP').textContent = fmt.pct(res.bep, 3);
+      document.getElementById('mGross').textContent = fmt.inrFull(res.grossPL);
+      document.getElementById('mGross').style.color = res.grossPL >= 0 ? COLORS.success : COLORS.danger;
+      document.getElementById('mInterest').textContent = fmt.inrFull(res.interestC);
+      document.getElementById('mCharges').textContent = fmt.inrFull(res.totalChg);
+      document.getElementById('mCost').textContent = fmt.inrFull(res.totalCost);
+
+      const signal = document.getElementById('signal');
+      signal.innerHTML = `${res.netPL >= 0 ? '✅ <span class="good">Profitable</span>' : '❌ <span class="bad">In loss</span>'} &nbsp;|&nbsp; ${fmt.inrFull(res.netPL)} &nbsp;|&nbsp; ROE: ${fmt.pct(res.roe)}`;
+
+      const charges = [
+        { label: 'Interest', value: res.interestC, color: COLORS.danger },
+        { label: 'STT', value: res.sttC, color: COLORS.orange },
+        { label: 'Brokerage + GST', value: res.brokC, color: COLORS.warning },
+        { label: 'Stamp Duty', value: res.stampC, color: COLORS.purple },
+        { label: 'Exchange', value: res.exchC, color: COLORS.primary },
+        { label: 'SEBI', value: res.sebiC, color: COLORS.success }
+      ];
+
+      const chargesList = document.getElementById('chargesList');
+      chargesList.innerHTML = charges.map(c => `
+        <div class="charge-row">
+          <div class="name-wrap"><span class="dot" style="background:${c.color}"></span>${c.label}</div>
+          <div class="mono" style="color:${c.color};font-weight:700;">${fmt.inrFull(c.value)}</div>
+        </div>
+      `).join('') + `
+        <div class="summary-row" style="margin-top:4px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08)">
+          <strong>Total Cost of Carry</strong>
+          <strong class="mono bad">${fmt.inrFull(res.totalCost)}</strong>
+        </div>`;
+
+      const sensTableBody = document.getElementById('sensTableBody');
+      sensTableBody.innerHTML = sens.filter((_, i) => i % 5 === 0).map(r => `
+        <tr>
+          <td>${fmt.pctNum(r.retPct, 0)}</td>
+          <td class="mono">${fmt.inrFull(r.grossPL)}</td>
+          <td class="mono" style="color:${r.netPL >= 0 ? COLORS.success : COLORS.danger}">${fmt.inrFull(r.netPL)}</td>
+          <td style="color:${r.roePct >= 0 ? COLORS.success : COLORS.danger}">${r.roePct.toFixed(2)}%</td>
+        </tr>
+      `).join('');
+
+      const scenarioList = document.getElementById('scenarioList');
+      scenarioList.innerHTML = scenarios.map(s => `
+        <div class="scenario-row">
+          <div>
+            <div style="font-weight:700;">${s.name}</div>
+            <div class="note">Return ${fmt.pct(s.ret, 0)} · ${s.days} days</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="mono" style="font-weight:700;color:${s.netPL >= 0 ? COLORS.success : COLORS.danger}">${fmt.inrFull(s.netPL)}</div>
+            <div class="note">ROE ${fmt.pct(s.roe)}</div>
+          </div>
+        </div>
+      `).join('');
+
+      destroyCharts();
+      const common = baseChartOptions();
+
+      charts.chargesChart = new Chart(document.getElementById('chargesChart'), {
+        type: 'bar',
+        data: {
+          labels: charges.map(c => c.label),
+          datasets: [{ data: charges.map(c => c.value), backgroundColor: charges.map(c => c.color), borderRadius: 8 }]
+        },
+        options: { ...common, indexAxis: 'y', plugins: { ...common.plugins, legend: { display: false } } }
+      });
+
+      charts.sensitivityChart = new Chart(document.getElementById('sensitivityChart'), {
+        type: 'line',
+        data: {
+          labels: sens.map(d => d.retPct),
+          datasets: [{ label: 'Net P/L', data: sens.map(d => d.netPL), borderColor: COLORS.primary, pointRadius: 0, tension: 0.25, borderWidth: 2.5 }]
+        },
+        options: {
+          ...common,
+          scales: {
+            x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => sens[v].retPct + '%' } },
+            y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => fmt.inrCompact(v) } }
+          }
+        }
+      });
+
+      charts.sensNetChart = new Chart(document.getElementById('sensNetChart'), {
+        type: 'line',
+        data: { labels: sens.map(d => d.retPct), datasets: [{ label: 'Net P/L', data: sens.map(d => d.netPL), borderColor: COLORS.success, pointRadius: 0, tension: 0.25, borderWidth: 2.5 }] },
+        options: { ...common, scales: { x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => sens[v].retPct + '%' } }, y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => fmt.inrCompact(v) } } } }
+      });
+
+      charts.sensROEChart = new Chart(document.getElementById('sensROEChart'), {
+        type: 'line',
+        data: { labels: sens.map(d => d.retPct), datasets: [{ label: 'ROE %', data: sens.map(d => d.roePct), borderColor: COLORS.warning, pointRadius: 0, tension: 0.25, borderWidth: 2.5 }] },
+        options: { ...common, scales: { x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => sens[v].retPct + '%' } }, y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => v + '%' } } } }
+      });
+
+      charts.holdingNetChart = new Chart(document.getElementById('holdingNetChart'), {
+        type: 'line',
+        data: { labels: holding.map(d => d.days), datasets: [{ label: 'Net P/L', data: holding.map(d => d.netPL), borderColor: COLORS.primary, pointRadius: 0, tension: 0.2, borderWidth: 2.5 }] },
+        options: { ...common, scales: { x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, maxTicksLimit: 10 } }, y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => fmt.inrCompact(v) } } } }
+      });
+
+      charts.holdingInterestChart = new Chart(document.getElementById('holdingInterestChart'), {
+        type: 'line',
+        data: { labels: holding.map(d => d.days), datasets: [{ label: 'Interest', data: holding.map(d => d.interest), borderColor: COLORS.danger, pointRadius: 0, tension: 0.2, borderWidth: 2.5 }] },
+        options: { ...common, scales: { x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, maxTicksLimit: 10 } }, y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => fmt.inrCompact(v) } } } }
+      });
+
+      charts.scenarioChart = new Chart(document.getElementById('scenarioChart'), {
+        type: 'bar',
+        data: {
+          labels: scenarios.map(s => s.name),
+          datasets: [{ label: 'Net P/L', data: scenarios.map(s => s.netPL), backgroundColor: scenarios.map(s => s.color), borderRadius: 8 }]
+        },
+        options: { ...common, plugins: { ...common.plugins, legend: { display: false } }, scales: { x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted } }, y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => fmt.inrCompact(v) } } } }
+      });
+
+      charts.rateChart = new Chart(document.getElementById('rateChart'), {
+        type: 'line',
+        data: {
+          labels: rateSeries.map(r => r.retPct),
+          datasets: RATES.map((rate, i) => ({
+            label: `${(rate * 100).toFixed(3)}%/day`,
+            data: rateSeries.map(r => r[rate]),
+            borderColor: RATE_COLORS[i],
+            pointRadius: 0,
+            tension: 0.2,
+            borderWidth: 2
+          }))
+        },
+        options: { ...common, scales: { x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => rateSeries[v].retPct + '%' } }, y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.muted, callback: v => fmt.inrCompact(v) } } } }
+      });
+    }
+
+    document.querySelectorAll('input').forEach(el => el.addEventListener('input', updateUI));
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('own').value = DEFAULTS.own;
+      document.getElementById('borrowed').value = DEFAULTS.borrowed;
+      document.getElementById('stockRet').value = DEFAULTS.stockRet * 100;
+      document.getElementById('days').value = DEFAULTS.days;
+      document.getElementById('dailyRate').value = DEFAULTS.dailyRate * 100;
+      document.getElementById('brokerage').value = DEFAULTS.brokerage;
+      document.getElementById('stt').value = DEFAULTS.stt * 100;
+      document.getElementById('gst').value = DEFAULTS.gst * 100;
+      document.getElementById('stamp').value = DEFAULTS.stamp * 100;
+      document.getElementById('exchange').value = DEFAULTS.exchange * 100;
+      document.getElementById('sebi').value = DEFAULTS.sebi * 100;
+      updateUI();
+    });
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    window.addEventListener('load', updateUI);
+  </script>
+</body>
+</html>
